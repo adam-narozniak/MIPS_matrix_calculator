@@ -141,6 +141,8 @@ get_matrix:
 	addiu $sp,$sp,-4
 	sw $fp,0($sp)
 	move $fp,$sp
+	#addi $sp,$sp,-4			#place for local current addres of allocated memory for matrix
+	
 	
 	
 	li $v0, 9			#allocating memory on heap
@@ -152,6 +154,8 @@ get_matrix:
 #reading matrix	
 whole_loop:		#loop to get all numbers,
 			#whereas the lower ones are to get sigle number
+			#$t9 as place for local current addres of allocated memory for matrix
+			#$t8, loop counter
 	lbu $t0, ($s5)			#load first char, $s5 current buff adress
 	addiu $s5,$s5,1
 	beq $t0,'-', negative		#negative number - >jump
@@ -167,11 +171,12 @@ pos_loop:
 	add $t0,$t0,$t1
 	j pos_loop
 end_int_pos:
-	move $s7, $t0
-	sw 
+	
+	sw $t0,($t9)
+	addiu $t9,$t9,1
 	move $t0,$zero
 	move $t1,$zero
-	jr $ra
+	j whole_loop
 	
 	
 negative:
