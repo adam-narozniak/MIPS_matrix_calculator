@@ -107,6 +107,7 @@ matrix2:	#this is each call routine
 	li $v0,1
 	move $a0, $s2
 	syscall
+	jal print_endl
 	
 	#------------------
 	#fuction print_matrix(int* matrix_begin, int m, int n):
@@ -115,8 +116,12 @@ matrix2:	#this is each call routine
 	
 	
 	
-	
-#here in loop for add sub $t0 loop counter $t7 $8 respectively adddress of matrix1 and 2 
+#CONVENTION HERE	
+#here in loop for add sub
+# $t0 loop counter 
+#$t7 $8 respectively adddress of matrix1 and 2 
+
+
 	lw $t7, 4($sp)
 	lw $t8, ($sp)
 #space for address of allocated memory for matrix -creating local variable in main for 
@@ -147,55 +152,125 @@ c1_body:#check whether it is possible to add
 	syscall
 	move $t9,$v0			#$t9 address of alocated memory
 	sw $t9,($sp)			#saved as loc variable in main
-	#$t5, $t6 temp value of matrix addresses
-	lw $t5, ($t7)
-	lw $t6, ($t8)
-add_loop:	
-	beqz $t0,add_end
-	# $t4 is sum/product of subtraction
-	addu $t4,$t5,$t6
-	sw $t4, ($t9)
-	addiu $t9,$t9,4
-	addiu $t5,$t5,4
-	addiu $t6,$t6,4
-	addiu $t0,$t0,-1
-	j add_loop
-add_end:	#allocate on stack size of matrix to display( m,n)
-	addiu $sp,$sp,-4
+	addiu $sp,$sp,-4		#allocate on stack size of matrix to display( m,n)
 	sw $s1,($sp)
 	addiu $sp,$sp, -4
 	sw $s2, ($sp)
-	j cond_end
+	
+add_loop:	
+	beqz $t0,cond_end
+	#$t5, $t6 temp value of matrices
+	lw $t5, ($t7)
+	lw $t6, ($t8)
+	# $t4 is sum/product of subtraction
+	addu $t4,$t5,$t6
+	sw $t4, ($t9)
+	addiu $t9,$t9,4		#go to the next word of new matrix (change address)
+	addiu $t7,$t7,4		#go to the next word of matrix 1 (change address)
+	addiu $t8,$t8,4		#go to the next word of matrix 2 (change address)
+	addiu $t0,$t0,-1
+	j add_loop
 c2_body:
 	jal check_add_sub
-
-	
 	lw $t0,16($sp)			#load m1*n1 (it is equal to m2*n2)
 	mul $t1,$t0,4			#multiplying by 4 to get number of words to store ints
 	li $v0, 9			#allocating memory on heap
 	move $a0, $t1			#loading 4*m*n
-	move $t9,$v0			#address of alocated memory
-	sw $t9,($sp)			#saved as loc variable
+	syscall
+	move $t9,$v0			#$t9 address of alocated memory
+	sw $t9,($sp)			#saved as loc variable in main
+	addiu $sp,$sp,-4		#allocate on stack size of matrix to display( m,n)
+	sw $s1,($sp)
+	addiu $sp,$sp, -4
+	sw $s2, ($sp)
+	
+sub_loop:
+	beqz $t0,cond_end
+	nop ################################check this
 	#$t5, $t6 temp value of matrix holders
 	lw $t5, ($t7)
-	lw $t6, ($t8)
-sub_loop:	
-	beqz $t0,sub_end
+	lw $t6, ($t8)	
 	# $t4 is sum/product of subtraction
 	subu $t4,$t5,$t6
 	sw $t4,($t9)
 	addiu $t9,$t9,4
-	addiu $t5,$t5,4
-	addiu $t6,$t6,4
+	addiu $t7,$t7,4
+	addiu $t8,$t8,4
 	addiu $t0,$t0,-1
-sub_end:	#allocate on stack size of matrix to display( m,n)
-	addiu $sp,$sp,-4
+	j sub_loop
+c3_body:
+	jal check_mult
+	#allocate space for m1*n2
+	mul $t0,$s1,$s4			#size (in words) of new matrix
+	mul $t1,$t0,4			#size in bytes of new matrix
+	li $v0, 9			#allocating memory on heap
+	move $a0, $t1			#loading 4*m*n
+	syscall
+	move $t9,$v0			#$t9 address of alocated memory
+	sw $t9,($sp)			#saved as loc variable in main
+	addiu $sp,$sp,-4		#allocate on stack size of matrix to display( m,n)
 	sw $s1,($sp)
 	addiu $sp,$sp, -4
-	sw $s2, ($sp)
-	j cond_end
-c3_body:
-	jal check_mult	
+	sw $s4,($sp)
+	#CONVETNITON HERE		loop counters
+	move $t2,$s1			#$t2 = m1
+	move $t3,$s2			#t3 = n1
+	move $s7, $s4			#$s7 = n2
+	move $t4,$zero 			#to make sure it's 0
+
+
+
+loop_m1:
+	beqz $t2,cond_end
+	addiu $t2,$t2,-1
+#single value loop	
+mult_loop_n1:				#$t4 sum which is new element of new matrix
+					#$t7 current matrix1 address
+					#$t8 current matrix2 address
+	beqz $t3,end_n1 #????		if n1 == 0 break and go to end_n2
+	addiu $t3,$t3,-1		#n1= n1-1
+	lw $t5, ($t7)			#load value from curren matrix1 address v1
+	lw $t6, ($t8)			#load value from curren matrix2 address v2
+	mul $t0,$t5,$t6			#v1*v2
+	add $t4,$t4,$t0			#sum = sum + v1*v2
+	addiu $t7,$t7,4			#move current address of matix 1
+	mul $t0, $s4,4			#size in bytes to move address of matrix 2 to get to nex elem in column
+	add $t8,$t8,$t0
+	
+	j mult_loop_n1
+	
+	
+end_n1:#end n1
+	move $t3, $s2 		#renew n1
+	mul $t0, $s2, -4	#restore matrix 1 to the beginning of the row 
+	add $t7,$t7,$t0
+	
+	move $t0, $s3		#this is tricky####check if error accurs
+	#addiu $t0,$t0,-1
+	mul $t0, $t0, -4
+	mul $t0, $s4, $t0	#restore matrix 2 to the beginning of the matrix
+	addiu $t0,$t0,4
+	add $t8,$t8, $t0	#matrix2 current address = next element (according to prior loop)
+	
+	sw $t4,($t9)		#save product of addition of multiplication of the each row elem (of matrix 1) and each elem of column of matrix 2
+	addiu $t9,$t9,4		#next address of new matrix
+	move $t4,$zero
+	
+	addiu $s7,$s7,-1
+	
+	
+#jump if you have first row output (product of the first row of the matrix)f
+	beqz $s7,end_n2		#if(n2 == 0) 
+	j mult_loop_n1	
+end_n2:	
+	#moving matrix 2 back to the beginning of the address
+	move $s7, $s4 		#renew n2 so $s7 = $s4 which is n2
+	mul $t0,$s2,4 		#move matrix 1 to the next row
+	add $t7,$t7,$t0
+	lw $t8,12($sp)			#not sure here###################################################
+	j loop_m1
+	
+	
 c4_body:
 	jal check_det
 cond_end:		#prep to call print_matrix(m,n,address)
@@ -203,9 +278,10 @@ cond_end:		#prep to call print_matrix(m,n,address)
 	lw $t3, 12($sp)
 	sw $t3,($sp)		#address
 	addiu $sp,$sp,-4
-	lw $t3, 4($sp)		#n
+	lw $t3, 8($sp)		#n
 	sw $t3,($sp)
-	lw $t3, 8($sp)		#m
+	addiu $sp,$sp,-4
+	lw $t3, 16($sp)		#m
 	sw $t3, ($sp)
 	jal print_matrix
 	
@@ -263,7 +339,7 @@ new_char:
 	beq $t1,'\n',end_int
 	beq $t1,' ',end_int
 	subi $t1,$t1,'0'
-	mulo $t0,$t0,10
+	mulo  $t0,$t0,10
 	add $t0,$t0,$t1
 	j new_char
 end_int:	
@@ -289,7 +365,7 @@ get_matrix:
 	
 	
 	lw $t8,12($fp)			#$t8, loop counter, starts at m*n and goes to 0 ten breaks loop
-	mulo $t7,$t8,4			#multiplying by 4 to get number of words to store ints
+	mul  $t7,$t8,4			#multiplying by 4 to get number of words to store ints
 	li $v0, 9			#allocating memory on heap
 	move $a0, $t7			#loading 4*m*n
 	syscall
@@ -436,9 +512,9 @@ print_matrix:	#print matrix (m,n, address)
 	sw $fp,($sp)
 	move $fp,$sp
 	#tu jest cos zle
-	lw $t0,4($fp)		#m
-	lw $t1,8($fp)		#n
-	lw $t2,12($fp)		#address
+	lw $t0,8($fp)		#m
+	lw $t1,12($fp)		#n
+	lw $t2,16($fp)		#address
 fori:	#go until m=0
 	beqz $t0,end_printing
 	addiu $t0,$t0,-1
@@ -454,7 +530,7 @@ forj:	#go until n=0
 	jal print_space
 	j forj
 end_forj:
-	lw $t1,8($fp)		#n renewed
+	lw $t1,12($fp)		#n renewed
 	jal print_endl
 	j fori
 	
