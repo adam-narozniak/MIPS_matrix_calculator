@@ -5,6 +5,7 @@ error_open:	.asciiz "Error: opening file\nCheck file path!\n"
 error_format:	.asciiz "Error: wrong format of the data in the file\nOperation not specified\n"
 error_sizes:	.asciiz "Error: not correct sizes of matrices to perform specified operation\nCheck first line of the file\n"
 endl:		.asciiz "\n"
+space:		.asciiz " "
 if_testing:	.asciiz "Loop testing\n"
 plus:		.asciiz "+\n"
 minus:		.asciiz "-"
@@ -52,6 +53,9 @@ read_f:
 	la $s5,buf		#current buf address
 	jal get_operation_type
 	
+	#space for two local variables(in main) m1*n1 and m2*n2
+	addiu $sp,$sp,-4		#space for two local variables(in main) m1*n1 and m2*n2
+	addiu $sp,$sp,-8 	#space for two adresses of dynamically allocated memory for matrices - local(in main) variables
 	
 m1_n1:	#first matrix read
 	jal get_m_n
@@ -60,15 +64,14 @@ m1_n1:	#first matrix read
 	move $s2,$s7		#n1 - first matrix
 	
 	
-	
-	addiu $sp,$sp,-8 	#space for two adresses of dynamically allocated memory for matrices - local(in main) variables
-	
 matrix1:	#this is each call routine
 	mul $t0,$s1,$s2		#$t0= n1*m1 number of elem in matrix
+	sw $t0,12($sp)		#storing m1*n1 in on stack as local variable in main							m1*n1
 	addiu $sp,$sp,-4		#space for $t0 (argument of the fuction), which contains m*n
 	sw $t0,($sp)		#store $t0
 	# you should specify this each time 
-	la $t0, 8($sp)		#store address of space to write address of memory
+	#la $t0, 8($sp)		#store address of space to write address of memory
+	add $t0,$sp,8
 	addiu $sp,$sp,-4
 	sw $t0,($sp)
 	jal get_matrix
@@ -81,10 +84,12 @@ m2_n2:	#second matrix read
 	move $s4,$s7		#n2 - second matrix
 matrix2:	#this is each call routine
 	mul $t0,$s3,$s4		#$t0= n*m number of elem in matrix
+	sw $t0,8($sp)		#storing m1*n1 in on stack as local variable in main							m2*n2
 	addiu $sp,$sp,-4		#space for $t0 (argument of the fuction), which contains m*n
 	sw $t0,($sp)		#store $t0
 	# you should specify this each time 
-	la $t0, 4($sp)		#store address of space to write address of memory
+	#la $t0, 4($sp)		#store address of space to write address of memory
+	add $t0,$sp,4
 	addiu $sp,$sp,-4
 	sw $t0,($sp)
 	jal get_matrix
@@ -102,9 +107,22 @@ matrix2:	#this is each call routine
 	li $v0,1
 	move $a0, $s2
 	syscall
+	
 	#------------------
 	#fuction print_matrix(int* matrix_begin, int m, int n):
 	#addiu $sp,$sp,-4
+	
+	
+	
+	
+	
+#here in loop for add sub $t0 loop counter $t7 $8 respectively adddress of matrix1 and 2 
+	lw $t7, 4($sp)
+	lw $t8, ($sp)
+#space for address of allocated memory for matrix -creating local variable in main for 
+	addiu $sp,$sp,-4
+	
+	
 	
 	bne $s6,1, c2_cond		#if $s6 != 1 check 
 	j c1_body
@@ -117,55 +135,80 @@ c3_cond:
 c4_cond:				#else (no error can accur, taken care earlier) so $s6 == 4
 	j c4_body 
 
-#here in loop add sub $t0 loop counter $t7 $8 respectively adddress of matrix1 and 2
-	lw $t7, 8($sp)
-	lw $t8, 4($sp)
+
 c1_body:#check whether it is possible to add
 	jal check_add_sub
 	
-add_loop:
-	beqz $t0,add_end
-	mulo $t0, $s1, $s2
-	mulo $t1,$t0,4			#multiplying by 4 to get number of words to store ints
+
+	lw $t0,16($sp)			#load m1*n1 (it is equal to m2*n2)
+	mul $t1,$t0,4			#multiplying by 4 to get number of words to store ints
 	li $v0, 9			#allocating memory on heap
 	move $a0, $t1			#loading 4*m*n
-	move $t9,$v0			#address of alocated memory
-	
-	#$t5, $t6 temp value of matrix holders
+	syscall
+	move $t9,$v0			#$t9 address of alocated memory
+	sw $t9,($sp)			#saved as loc variable in main
+	#$t5, $t6 temp value of matrix addresses
 	lw $t5, ($t7)
 	lw $t6, ($t8)
+add_loop:	
+	beqz $t0,add_end
 	# $t4 is sum/product of subtraction
 	addu $t4,$t5,$t6
 	sw $t4, ($t9)
 	addiu $t9,$t9,4
+	addiu $t5,$t5,4
+	addiu $t6,$t6,4
 	addiu $t0,$t0,-1
-add_end:
+	j add_loop
+add_end:	#allocate on stack size of matrix to display( m,n)
+	addiu $sp,$sp,-4
+	sw $s1,($sp)
+	addiu $sp,$sp, -4
+	sw $s2, ($sp)
 	j cond_end
 c2_body:
 	jal check_add_sub
-sub_loop:
-	beqz $t0,add_end
-	mulo $t0, $s1, $s2
-	mulo $t1,$t0,4			#multiplying by 4 to get number of words to store ints
+
+	
+	lw $t0,16($sp)			#load m1*n1 (it is equal to m2*n2)
+	mul $t1,$t0,4			#multiplying by 4 to get number of words to store ints
 	li $v0, 9			#allocating memory on heap
 	move $a0, $t1			#loading 4*m*n
 	move $t9,$v0			#address of alocated memory
-	
+	sw $t9,($sp)			#saved as loc variable
 	#$t5, $t6 temp value of matrix holders
 	lw $t5, ($t7)
 	lw $t6, ($t8)
+sub_loop:	
+	beqz $t0,sub_end
 	# $t4 is sum/product of subtraction
 	subu $t4,$t5,$t6
 	sw $t4,($t9)
 	addiu $t9,$t9,4
+	addiu $t5,$t5,4
+	addiu $t6,$t6,4
 	addiu $t0,$t0,-1
-sub_end:
+sub_end:	#allocate on stack size of matrix to display( m,n)
+	addiu $sp,$sp,-4
+	sw $s1,($sp)
+	addiu $sp,$sp, -4
+	sw $s2, ($sp)
 	j cond_end
 c3_body:
 	jal check_mult	
 c4_body:
 	jal check_det
-cond_end:
+cond_end:		#prep to call print_matrix(m,n,address)
+	addiu $sp,$sp,-4
+	lw $t3, 12($sp)
+	sw $t3,($sp)		#address
+	addiu $sp,$sp,-4
+	lw $t3, 4($sp)		#n
+	sw $t3,($sp)
+	lw $t3, 8($sp)		#m
+	sw $t3, ($sp)
+	jal print_matrix
+	
 
 close_f:
 	li $v0,16		#closing file
@@ -250,7 +293,10 @@ get_matrix:
 	li $v0, 9			#allocating memory on heap
 	move $a0, $t7			#loading 4*m*n
 	syscall
-	sw $v0,8($fp)			#storing address of memory allocated for matrix
+	#add $t6,$fp,8
+	lw $t6,8($fp)
+	#sw $v0,8($fp)			#storing address of memory allocated for matrix
+	sw $v0,($t6)
 					#in adrress given as *address
 	move $t9,$v0			#storing address of memory allocated for matrix, as a place for current address
 	
@@ -321,15 +367,22 @@ done:
 #	syscall
 #----------------------------------
 print_endl:
-	li $v0,4		#printing endl
+	li $v0,4		#printing \n
 	la $a0, endl
 	syscall
 	jr $ra
+print_space:
+	li $v0,4		#printing ' '
+	la $a0, space
+	syscall
+	jr $ra
+
+	
 	
 #function get operation typ operation_type(int * buf_address) where $s5 have buf address
 get_operation_type:
-	addiu $sp,$sp,-4
-	sw $ra,($sp)
+	#addiu $sp,$sp,-4
+	#sw $ra,($sp)
 	lbu $t0, ($s5)			#load first char
 	addiu $s5,$s5,1
 	beq $t0, '+', addition
@@ -353,15 +406,15 @@ determinant:
 	
 op_end:				
 	addiu $s5,$s5,1		#moving after '\n'
-	
-	
 	jr $ra
-#fuction print_matrix(int* matrix_begin, int m, int n):
+	
+	
+# fuction print_matrix(int* matrix_begin, int m, int n):
 #
 
 check_add_sub:
-	bne $s1,$s2,error_m_n
-	bne $s3,$s4,error_m_n
+	bne $s1,$s3,error_m_n
+	bne $s2,$s4,error_m_n
 	jr $ra
 check_mult:
 	bne $s2,$s3,error_m_n
@@ -369,6 +422,52 @@ check_mult:
 check_det:
 	bne $s1,$s2,error_m_n
 	jr $ra
-print_matrix:	
+	
+	
+	
+	
+	
+	
+	
+print_matrix:	#print matrix (m,n, address)
+	addiu $sp,$sp,-4
+	sw $ra,($sp)
+	addiu $sp,$sp, -4
+	sw $fp,($sp)
+	move $fp,$sp
+	#tu jest cos zle
+	lw $t0,4($fp)		#m
+	lw $t1,8($fp)		#n
+	lw $t2,12($fp)		#address
+fori:	#go until m=0
+	beqz $t0,end_printing
+	addiu $t0,$t0,-1
+forj:	#go until n=0
+	beqz $t1, end_forj
+	addiu $t1,$t1,-1
+	li $v0, 1			#printing sigle element
+	lw $a0, ($t2)
+	syscall
+	addiu $t2,$t2,4
+	
+	
+	jal print_space
+	j forj
+end_forj:
+	lw $t1,8($fp)		#n renewed
+	jal print_endl
+	j fori
+	
+	
+end_printing:
+
+	#lw $ra,4($fp)
+	move $sp,$fp
+	lw $fp,($sp)
+	addiu $sp,$sp,4
+	lw $ra,($sp)
+	addiu $sp,$sp,4
+	jr $ra
+	
 	
 	
