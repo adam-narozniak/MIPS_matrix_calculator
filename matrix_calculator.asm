@@ -53,6 +53,7 @@ read_f:
 	la $s5,buf		#current buf address
 	jal get_operation_type
 	
+	move $fp,$sp
 	#space for two local variables(in main) m1*n1 and m2*n2
 	addiu $sp,$sp,-4		#space for two local variables(in main) m1*n1 and m2*n2
 	addiu $sp,$sp,-8 	#space for two adresses of dynamically allocated memory for matrices - local(in main) variables
@@ -85,7 +86,7 @@ m2_n2:	#second matrix read
 matrix2:	#this is each call routine
 	mul $t0,$s3,$s4		#$t0= n*m number of elem in matrix
 	sw $t0,8($sp)		#storing m1*n1 in on stack as local variable in main							m2*n2
-	addiu $sp,$sp,-4		#space for $t0 (argument of the fuction), which contains m*n
+	addiu $sp,$sp,-4	#space for $t0 (argument of the fuction), which contains m*n
 	sw $t0,($sp)		#store $t0
 	# you should specify this each time 
 	#la $t0, 4($sp)		#store address of space to write address of memory
@@ -267,12 +268,61 @@ end_n2:
 	move $s7, $s4 		#renew n2 so $s7 = $s4 which is n2
 	mul $t0,$s2,4 		#move matrix 1 to the next row
 	add $t7,$t7,$t0
-	lw $t8,12($sp)			#not sure here###################################################
+	lw $t8,12($sp)			#not sure here################################################### need change, it works but is not ellegant form
 	j loop_m1
 	
-	
+#-----------------------------------------------------------------------------NOW NOW NOW	3435533333535355555555555555555555555555555555555555555555555555555555555555555555
 c4_body:
-	jal check_det
+
+#get_cofactor(int *matrix, int * temp, int p, int q, int n)
+#where p index of row which won't be copied
+#where q index of column which won't be copied
+					#stack porinter pointing address of matrix2
+	jal check_det	
+		
+	move $t0,$s1
+	addiu $t1,$t0,-1		
+	mul $t0,$t1,$t1			#size of matrix in words
+
+	sll $t0,$t0,2			#size of matrix in bytes
+	subu $sp,$sp,$t0 		#allocate space on stack for temp matrix
+	
+	addiu $sp,$sp,-4		#put matrix n on stack
+	sw $s1,($sp)
+	
+	addiu $t0, $zero, 0		#p,q - 0 for check
+	addiu $sp,$sp,-4
+	sw $t0,($sp)
+	addiu $sp,$sp,-4
+	sw $t0,($sp)
+	
+	la $t0,12($sp)			#address of temp matrix (begining of it)
+					#convetion i'll follow is: the matrix will be
+					#saved from the lowest to the highest address
+
+	addiu $sp,$sp,-4		#put addres of temp on stack
+	sw $t0,($sp)
+	sw $t0,-16($fp)
+	
+	addiu $sp,$sp,-4		#put marix address on stack
+	lw $t0, -8($fp)			#address of address of matrix is -8($fp)
+	sw $t0,($sp)
+	
+	jal get_cofactor
+	addiu $sp,$sp,20		#dealocate space from gunction args
+	lw $t0,-16($fp)			#address of temp
+	#lw $t0, 4($sp)			#address of temp
+	addiu $sp,$sp,-4
+	sw $t0,($sp)
+	move $t0,$s1
+	addiu $t1,$t0,-1
+	addiu $sp,$sp,-4		#allocate on stack size of matrix to display( m,n)
+	sw $t1,($sp)
+	addiu $sp,$sp,-4		#allocate on stack size of matrix to display( m,n)
+	sw $t1,($sp)
+	jal print_matrix
+	j close_f
+	
 cond_end:		#prep to call print_matrix(m,n,address)
 	addiu $sp,$sp,-4
 	lw $t3, 12($sp)
@@ -433,7 +483,12 @@ end_int_neg:
 	
 	
 done:	
-	addiu $sp,$sp,8		#dealocting space for $ra and $fp
+	#addiu $sp,$sp,8		
+	move $sp,$fp			#dealocting space for $ra and $fp
+	lw $fp,($sp)
+	addiu $sp,$sp, 4
+	lw $ra,($sp)
+	addiu $sp,$sp, 4
 	jr $ra
 	
 
@@ -544,6 +599,103 @@ end_printing:
 	lw $ra,($sp)
 	addiu $sp,$sp,4
 	jr $ra
+
+determinat:
+	addiu $sp,$sp,-4
+	sw $ra,($sp)
+	addiu $sp,$sp,-4
+	sw $fp,($sp)
+	move $fp,$sp
+	lw $t0, 8($fp)		#check if the size of matrix is 1
+	beq $t0,1,one_by_one
 	
 	
 	
+one_by_one:
+	lw $t0, 12($fp)
+	add $s7, $s7, $t0		#cumulate determinants
+	j end_det #?????????? i am not sure
+end_det:
+	
+	
+###############################################################################
+#get_cofactor(int *matrix, int * temp, int p, int q, int size)
+#where p index of row which won't be copied
+#where q index of column which won't be copied
+get_cofactor:	
+	addiu $sp,$sp,-4
+	sw $ra, ($sp)
+	addiu $sp,$sp,-4
+	sw $fp,($sp)
+	move $fp,$sp
+	
+	#addiu $sp,$sp,-16 		#space for 4 local variables
+	#sw $zero,4($fp)			#i = 0
+	#sw $zero,8($fp)			#j = 0
+	#sw $zero,12($fp)		#row = 0
+	#sw $zero,16($fp)		#col = 0
+	
+	move $t0,$zero			# $t0 = i = 0
+	move $t1,$zero			# $t1 = j = 0
+	move $t2,$zero			# $t2 = row = 0
+	lw $t4,24($fp)			#$t4 = n; it will stay const
+	lw $t5,16($fp)			#$t5 = p
+	lw $t6,20($fp)			#t6 = q
+	lw $t7,8($fp)			#t7 = address of matrix
+	lw $t8,12($fp)			#$t8 = address of temp
+	addiu $s7,$t4,-1		#n of temp = n -1 
+
+	beq $t2,$t4,not_loop1_get_cofactor	#  for (int row = 0; row < n; row++) 
+loop1_get_cofactor:
+
+	move $t3,$zero				#$t3 = col = 0
+	beq $t3,$t4,end_loop1_get_cofactor	#   for (int col = 0; col < n; col++) 
+loop2_get_cofactor:
+	
+if1_get_cofactor:	
+	beq $t2,$t5, end_ifs_get_cofactor	# if (!(row==p || col==q))
+	beq $t3,$t6, end_ifs_get_cofactor
+	#temp 
+	mul $t9, $s7, $t0			#go to index ith row, so i * size (in words)
+	add $t9,$t9,$t1				#go to the correct column
+	sll $t9,$t9,2				#multiply by 4 (shifting 2 bits left)
+	add $t8,$t8,$t9				#store correct address
+	move $t9,$zero
+	#matrix
+	mul $t9, $t4, $t2			#go to index ith row, so row * size (in words)
+	add $t9,$t9,$t3			#go to the correct column
+	sll $t9,$t9,2				#multiply by 4 (shifting 2 bits left)
+	add $t7,$t7,$t9				#store correct address
+	
+	lw $t9,($t7)				#$t9 = mat[row][col]; 
+	sw $t9,($t8)				#temp[i][j] = $t9
+	addiu $t1,$t1,1				#j++
+	lw $t7,8($fp)				#t7 = address of matrix back to beginning
+	lw $t8,12($fp)				#$t8 = address of temp back to beginning
+if2_get_cofactor:				
+	addiu $t9,$t4,-1			# if (j == n - 1) 
+	bne $t1, $t9, end_ifs_get_cofactor
+	move $t1,$zero				#j=0	
+	addiu $t0,$t0,1				#i++
+end_ifs_get_cofactor:
+	addiu $t3,$t3,1				#col++
+	blt $t3,$t4,loop2_get_cofactor		#   for (int col = 0; col < n; col++)
+end_loop1_get_cofactor:
+	addiu $t2,$t2,1				#row++
+	blt $t2,$t4,loop1_get_cofactor		#  for (int row = 0; row < n; row++)
+not_loop1_get_cofactor:	
+	move $sp,$fp				#end of the function
+	lw $fp,($sp)
+	addiu $sp,$sp,4
+	lw $ra,($sp)
+	addiu $sp,$sp,4
+	jr $ra
+
+	
+	
+	
+	
+	
+	
+	
+				
