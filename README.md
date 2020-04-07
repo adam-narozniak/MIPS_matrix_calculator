@@ -1,25 +1,25 @@
 # MIPS Matrix Calculator
 Program enables to do the following operation:
-*addition,
-*subtraction,
-*multiplication,
-*calculation of determinant.
+* addition,
+* subtraction,
+* multiplication,
+* calculation of determinant.
 It gets input from a file of specific format.
 Matrices are read to bufor, then dynamically allocated on heap. The same goes for a result.
 Program outputs (prints) a product of calculation. Determinant is calculated using Laplace expansion.
 ## Funtions
 Program has few specified funtions:
-*get_matrix
-*get_m_n
-*get_determinant ...
+* get_matrix
+* get_m_n
+* get_determinant ...
 Not all of them allocate local variables, some of them return using secified registers.
 
 ### File format
-<operation>
-<matrix1's size>
-<matrix1>
-<matrix2's size>
-<matrix2>
+\<operation\><br>
+\<matrix1's size\><br>
+\<matrix1\><br>
+\<matrix2's size\><br>
+\<matrix2\><br>
 
 ```
 +
