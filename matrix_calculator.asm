@@ -1,15 +1,13 @@
 .data
 greeting: 	.asciiz "It's a matrix calculator!\n\n"
-file_path:	.asciiz "/home/adam/Desktop/MIPS/code/data2.txt"
+file_path:	.asciiz "/home/adam/Desktop/MIPS/code/data3.txt"
 error_open:	.asciiz "Error: opening file\nCheck file path!\n"
 error_format:	.asciiz "Error: wrong format of the data in the file\nOperation not specified\n"
 error_sizes:	.asciiz "Error: not correct sizes of matrices to perform specified operation\nCheck first line of the file\n"
-endl:		.asciiz "\n"
 space:		.asciiz " "
 plus:		.asciiz "+\n"
 minus:		.asciiz "-"
 buf:		.space 1024
-.text
 #$s0 file descriptor
 #$s1 m1
 #$s2 n1
@@ -18,7 +16,7 @@ buf:		.space 1024
 #$s5 current buf address
 #$s6 operation type: 
 # 1 '+',  2 "-', 3 '*', 4 'det'
-#$s7 
+.text
 .globl main
 main:
 	li $v0,4			#printing greetings
@@ -92,7 +90,7 @@ c3_cond:
 	bne $s6,3, c4_cond		#if else $s6 != 3
 	j c3_body
 c4_cond:				#else (no error can accur, taken care earlier) so $s6 == 4
-	j c5_body 
+	j c4_body 
 
 
 c1_body:
@@ -173,21 +171,19 @@ c3_body:
 	addiu $sp,$sp, -4
 	sw $s4,($sp)
 	#CONVETNITON HERE		loop counters
-	move $t2,$s1			#$t2 = m1
-	move $t3,$s2			#t3 = n1
-	move $s7, $s4			#$s7 = n2
+	move $t2,$s1			#$t2 = m1 	each row of matrix1 will be multiplied
+	move $t3,$s3			#t3 = m2	column (each element of that column) of matrix2 will be mutiplied
+	move $s7, $s4			#$s7 = n2	each column of matrix2 will be multiplied
 	move $t4,$zero 			#$t4 = 0
 
-
-
+#$t4 sum of each element of new matrix for example matrix_new[0][0]
+#$t7 present matrix1 address
+#$t8 present matrix2 address
 loop_m1:
-	beqz $t2,cond_end
 	addiu $t2,$t2,-1
 #single value loop	
-mult_loop_n1:				#$t4 sum which is new element of new matrix
-					#$t7 current matrix1 address
-					#$t8 current matrix2 address
-	beqz $t3,end_n1 #????		if n1 == 0 break and go to end_n2
+mult_loop_m2:				
+	beqz $t3,end_m2 		#if n1 == 0 break and go to end_m2
 	addiu $t3,$t3,-1		#n1= n1-1
 	lw $t5, ($t7)			#load value from curren matrix1 address v1
 	lw $t6, ($t8)			#load value from curren matrix2 address v2
@@ -196,17 +192,15 @@ mult_loop_n1:				#$t4 sum which is new element of new matrix
 	addiu $t7,$t7,4			#move current address of matix 1
 	mul $t0, $s4,4			#size in bytes to move address of matrix 2 to get to nex elem in column
 	add $t8,$t8,$t0
+	bgtz $t3,mult_loop_m2		#if present m2 > 0 got mult_loop_m2
+	#j mult_loop_m2
 	
-	j mult_loop_n1
-	
-	
-end_n1:#end n1
+end_m2:
 	move $t3, $s2 		#renew n1
 	mul $t0, $s2, -4	#restore matrix 1 to the beginning of the row 
 	add $t7,$t7,$t0
 	
-	move $t0, $s3		#this is tricky####check if error accurs
-	#addiu $t0,$t0,-1
+	move $t0, $s3		
 	mul $t0, $t0, -4
 	mul $t0, $s4, $t0	#restore matrix 2 to the beginning of the matrix
 	addiu $t0,$t0,4
@@ -214,78 +208,24 @@ end_n1:#end n1
 	
 	sw $t4,($t9)		#save product of addition of multiplication of the each row elem (of matrix 1) and each elem of column of matrix 2
 	addiu $t9,$t9,4		#next address of new matrix
-	move $t4,$zero
-	
+	move $t4,$zero		
 	addiu $s7,$s7,-1
 	
-	
-#jump if you have first row output (product of the first row of the matrix)f
-	beqz $s7,end_n2		#if(n2 == 0) 
-	j mult_loop_n1	
+	#jump if you have first row output (product of the first row of the matrix)f
+	bgtz $s7,mult_loop_m2		#if present n2>0 goto mult_loop_m2
+
 end_n2:	
 	#moving matrix 2 back to the beginning of the address
 	move $s7, $s4 		#renew n2 so $s7 = $s4 which is n2
 	mul $t0,$s2,4 		#move matrix 1 to the next row
 	add $t7,$t7,$t0
-	lw $t8,12($sp)			#not sure here################################################### need change, it works but is not ellegant form
+	lw $t8,-12($fp)		#go back to the beginning of matrix2 (to the address of beginning)
+	beqz $t2,cond_end		#if $t2 == 0 goto cond_end
 	j loop_m1
 	
-#-----------------------------------------------------------------------------NOW NOW NOW	3435533333535355555555555555555555555555555555555555555555555555555555555555555555
 c4_body:
-
-#get_cofactor(int *matrix, int * temp, int p, int q, int n)
-#where p index of row which won't be copied
-#where q index of column which won't be copied
-					#stack porinter pointing address of matrix3
-	jal check_det	
-	#temp alllocation
-	move $t0,$s1
-	addiu $t1,$t0,-1		
-	mul $t0,$t1,$t1			#size of matrix in words
-
-	sll $t0,$t0,2			#size of matrix in bytes
-	subu $sp,$sp,$t0 		#allocate space on stack for temp matrix
-	#arguments of get_cofactor
-	addiu $sp,$sp,-4		#put matrix n on stack
-	sw $s1,($sp)
-	
-	addiu $t0, $zero, 0		#p,q - 0 for check
-	addiu $sp,$sp,-4
-	sw $t0,($sp)
-	addiu $sp,$sp,-4
-	sw $t0,($sp)
-	
-	la $t0,12($sp)			#address of temp matrix (begining of it)
-					#convetion i'll follow is: the matrix will be
-					#saved from the lowest to the highest address
-
-	addiu $sp,$sp,-4		#put addres of temp on stack
-	sw $t0,($sp)
-	sw $t0,-16($fp)
-	
-	addiu $sp,$sp,-4		#put marix address on stack
-	lw $t0, -8($fp)			#address of address of matrix is -8($fp)
-	sw $t0,($sp)
-	
-	jal get_cofactor
-	addiu $sp,$sp,20		#dealocate space from function args
-	lw $t0,-16($fp)			#address of temp
-	#lw $t0, 4($sp)			#address of temp
-	addiu $sp,$sp,-4
-	sw $t0,($sp)
-	move $t0,$s1
-	addiu $t1,$t0,-1
-	addiu $sp,$sp,-4		#allocate on stack size of matrix to display( m,n)
-	sw $t1,($sp)
-	addiu $sp,$sp,-4		#allocate on stack size of matrix to display( m,n)
-	sw $t1,($sp)
-	jal print_matrix
-	addiu $sp,$sp,12		#dealocating local arg of print_matrix
-	#space for temp should be deallocated
-	j close_f
-	
-c5_body:
-	jal check_det
+	#check whether it is possible to calculate determinant
+	bne $s1,$s2,error_m_n
 	addiu $sp,$sp,-8
 	sw $s1,4($sp)			#store n which is this case can be m1 or n1 cause they are the same, and are in $s1, $s2 
 	lw $t0,-8($fp)			#load matrix address
@@ -301,8 +241,8 @@ c5_body:
 	
 cond_end:		#prep to call print_matrix(m,n,address)
 	addiu $sp,$sp,-4
-	lw $t3, 12($sp)		#lw $t3,16($fp) will be better
-	sw $t3,($sp)		#address
+	lw $t3,-16($fp)		
+	sw $t3,($sp)		#address od matrix
 	addiu $sp,$sp,-4
 	lw $t3, 8($sp)		#n
 	sw $t3,($sp)
@@ -312,34 +252,43 @@ cond_end:		#prep to call print_matrix(m,n,address)
 	jal print_matrix		#void print_matrix(int m,int n,int *address)
 	addiu $sp,$sp,12		#deallocate space reserved for arg of print_matrix
 	
-
 close_f:
 	li $v0,16		#closing file
 	move $a0, $s0		#$a0 = file descriptor
 	syscall
-	j end
+end:
+	li $v0,10		#exit
+	syscall
+
+
 end_err_open:
 	li $v0,4		#printing error message
 	la $a0,error_open
 	syscall
-	j end
+	li $v0,10		#exit
+	syscall
 err_wrong_format:
+	li $v0,16		#closing file
+	move $a0, $s0		#$a0 = file descriptor
+	syscall
 	li $v0,4		#printing error message
 	la $a0,error_format
 	syscall
-	j end
+	li $v0,10		#exit
+	syscall
 error_m_n:
+	li $v0,16		#closing file
+	move $a0, $s0		#$a0 = file descriptor
+	syscall
 	li $v0,4		#printing error message
 	la $a0,error_sizes
 	syscall
-	j end
-	
-		
-end:	li $v0,10		#exit
+	li $v0,10		#exit
 	syscall
 
-#------------------------------------------------------------------	
-#GET_M_N function to get matrx size, it return m in $v0 and n in $v1
+
+
+#get_m_n function to get matrx's sizes, it return m in $v0 and n in $v1
 #$t0 holds result during counting and later on moves it to $s7
 get_m_n:
 	lbu $t0, ($s5)			#load first char
@@ -375,8 +324,8 @@ end_int2:
 	move $v1, $t0			#return n
 	jr $ra
 		
-#---------------------------------------------------------
-#function: int str_to_int(buf_adress, dynamic_memory_adress)
+
+#function get matrix: int str_to_int(buf_adress, dynamic_memory_adress)
 #return value is stored in 
 #
 get_matrix:
@@ -385,26 +334,15 @@ get_matrix:
 	addiu $sp,$sp,-4
 	sw $fp,0($sp)
 	move $fp,$sp
-	#addi $sp,$sp,-4			#store m*n as local variable, since it is argument of the function
-	
-	
-	#addi $sp,$sp,-4			#place for local current addres of allocated memory for matrix
-	
-	
 	lw $t8,12($fp)			#$t8, loop counter, starts at m*n and goes to 0 ten breaks loop
 	mul  $t7,$t8,4			#multiplying by 4 to get number of words to store ints
 	li $v0, 9			#allocating memory on heap
 	move $a0, $t7			#loading 4*m*n
 	syscall
-	#add $t6,$fp,8
 	lw $t6,8($fp)
-	#sw $v0,8($fp)			#storing address of memory allocated for matrix
 	sw $v0,($t6)
-					#in adrress given as *address
 	move $t9,$v0			#storing address of memory allocated for matrix, as a place for current address
-	
-#-----------------------------------------
-#reading matrix	
+
 whole_loop:		#loop to get all numbers,
 			#whereas the lower ones are to get sigle number
 			#$t9 as place for local current addres of allocated memory for matrix
@@ -459,8 +397,7 @@ end_int_neg:
 	j whole_loop
 	
 	
-done:	
-	#addiu $sp,$sp,8		
+done:			
 	move $sp,$fp			#dealocting space for $ra and $fp
 	lw $fp,($sp)
 	addiu $sp,$sp, 4
@@ -468,26 +405,8 @@ done:
 	addiu $sp,$sp, 4
 	jr $ra
 	
-
 	
-#	li $v0,1		#printing file descriptor
-#	move $a0, $t0
-#	syscall
-#----------------------------------
-print_endl:
-	li $v0,4		#printing \n
-	la $a0, endl
-	syscall
-	jr $ra
-print_space:
-	li $v0,4		#printing ' '
-	la $a0, space
-	syscall
-	jr $ra
-
-	
-	
-#function get operation typ
+#function get operation typ (no argument, no return value) all predefined using registers
 #$s5 current buf address
 get_operation_type:
 	lbu $t0, ($s5)				#load first char
@@ -515,20 +434,6 @@ op_end:
 	jr $ra
 	
 	
-
-#CHECKS
-check_add_sub:
-	bne $s1,$s3,error_m_n
-	bne $s2,$s4,error_m_n
-	jr $ra
-check_mult:
-	bne $s2,$s3,error_m_n
-	jr $ra
-check_det:
-	bne $s1,$s2,error_m_n
-	jr $ra
-	
-	
 	
 	
 	
@@ -540,7 +445,6 @@ print_matrix:	#print matrix (m,n, address)
 	addiu $sp,$sp, -4
 	sw $fp,($sp)
 	move $fp,$sp
-	#tu jest cos zle
 	lw $t0,8($fp)		#m
 	lw $t1,12($fp)		#n
 	lw $t2,16($fp)		#address
@@ -554,15 +458,16 @@ forj:	#go until n=0
 	lw $a0, ($t2)
 	syscall
 	addiu $t2,$t2,4
-	
-	
-	jal print_space
+	li $v0,11		#printing ' '
+	li $a0,' '
+	syscall
 	j forj
 end_forj:
 	lw $t1,12($fp)		#n renewed
-	jal print_endl
+	li $v0,11		#printing \n
+	li $a0, '\n'
+	syscall
 	j fori
-	
 	
 end_printing:
 
@@ -646,24 +551,19 @@ not_loop1_get_cofactor:
 	addiu $sp,$sp,4
 	jr $ra
 
-#FUNCTION int determinant(int address_matrix, int n), return in $v0, n = matix's dimmention
+#FUNCTION int determinant(int address_matrix, int n)
 #convetion
-#$t0 = n
+#return in $v0, n = matix's dimmention
 get_determinant:
 	addiu $sp,$sp,-4
 	sw $ra, ($sp)
 	addiu $sp,$sp,-4
 	sw $fp,($sp)
 	move $fp,$sp
-	
-	
-	
-	
 	#if (n==1) return matrix[0][0]
 	lw $t0, 12($fp)			#$t0 = n
 	bne $t0,1,not_if_get_determinant
 	lw $t1, 8($fp)			#address of matrix
-	#lw $t9,($t1)
 	lw $v0, ($t1)			#return $v0 = matrix 1x1 (i.e.single element)
 	move $sp,$fp
 	lw $fp,($sp)
@@ -679,8 +579,7 @@ not_if_get_determinant:
 	addiu $t1,$zero,1		
 	sw $t1,-12($fp)			#sign = 1;
 	sw $zero,-16($fp)		#f = 0;
-	
-	
+
 	#int temp[n-1][n-1]
 	addiu $t1,$t0,-1		#dimention of temp: n-1
 	mul $t1,$t1,$t1			#size of temp in words 
@@ -749,11 +648,3 @@ not_loop_get_determinant:
 	addiu $sp,$sp,4
 	jr $ra
 	
-
-	
-	
-	
-	
-	
-	
-				
