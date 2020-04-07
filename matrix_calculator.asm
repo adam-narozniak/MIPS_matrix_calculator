@@ -321,11 +321,12 @@ c4_body:
 	addiu $sp,$sp,-4		#allocate on stack size of matrix to display( m,n)
 	sw $t1,($sp)
 	jal print_matrix
+	addiu $sp,$sp,12
 	j close_f
 	
 cond_end:		#prep to call print_matrix(m,n,address)
 	addiu $sp,$sp,-4
-	lw $t3, 12($sp)
+	lw $t3, 12($sp)		#lw $t3,16($fp) will be better
 	sw $t3,($sp)		#address
 	addiu $sp,$sp,-4
 	lw $t3, 8($sp)		#n
@@ -333,7 +334,8 @@ cond_end:		#prep to call print_matrix(m,n,address)
 	addiu $sp,$sp,-4
 	lw $t3, 16($sp)		#m
 	sw $t3, ($sp)
-	jal print_matrix
+	jal print_matrix		#void print_matrix(int m,int n,int *address)
+	addiu $sp,$sp,12
 	
 
 close_f:
@@ -628,12 +630,6 @@ get_cofactor:
 	addiu $sp,$sp,-4
 	sw $fp,($sp)
 	move $fp,$sp
-	
-	#addiu $sp,$sp,-16 		#space for 4 local variables
-	#sw $zero,4($fp)			#i = 0
-	#sw $zero,8($fp)			#j = 0
-	#sw $zero,12($fp)		#row = 0
-	#sw $zero,16($fp)		#col = 0
 	
 	move $t0,$zero			# $t0 = i = 0
 	move $t1,$zero			# $t1 = j = 0
