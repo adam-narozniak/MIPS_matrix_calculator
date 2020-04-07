@@ -139,7 +139,7 @@ c3_cond:
 	bne $s6,3, c4_cond		#if else $s6 != 3
 	j c3_body
 c4_cond:				#else (no error can accur, taken care earlier) so $s6 == 4
-	j c4_body 
+	j c5_body 
 
 
 c1_body:#check whether it is possible to add
@@ -277,16 +277,16 @@ c4_body:
 #get_cofactor(int *matrix, int * temp, int p, int q, int n)
 #where p index of row which won't be copied
 #where q index of column which won't be copied
-					#stack porinter pointing address of matrix2
+					#stack porinter pointing address of matrix3
 	jal check_det	
-		
+	#temp alllocation
 	move $t0,$s1
 	addiu $t1,$t0,-1		
 	mul $t0,$t1,$t1			#size of matrix in words
 
 	sll $t0,$t0,2			#size of matrix in bytes
 	subu $sp,$sp,$t0 		#allocate space on stack for temp matrix
-	
+	#arguments of get_cofactor
 	addiu $sp,$sp,-4		#put matrix n on stack
 	sw $s1,($sp)
 	
@@ -309,7 +309,7 @@ c4_body:
 	sw $t0,($sp)
 	
 	jal get_cofactor
-	addiu $sp,$sp,20		#dealocate space from gunction args
+	addiu $sp,$sp,20		#dealocate space from function args
 	lw $t0,-16($fp)			#address of temp
 	#lw $t0, 4($sp)			#address of temp
 	addiu $sp,$sp,-4
@@ -321,8 +321,24 @@ c4_body:
 	addiu $sp,$sp,-4		#allocate on stack size of matrix to display( m,n)
 	sw $t1,($sp)
 	jal print_matrix
-	addiu $sp,$sp,12
+	addiu $sp,$sp,12		#dealocating local arg of print_matrix
+	#space for temp should be deallocated
 	j close_f
+	
+c5_body:
+	jal check_det
+	addiu $sp,$sp,-8
+	sw $s1,4($sp)			#store n which is this case can be m1 or n1 cause they are the same, and are in $s1, $s2 
+	lw $t0,-8($fp)			#load matrix address
+	sw $t0,($sp)			#put matrix adddress on stack
+	jal get_determinant
+	addiu $sp,$sp,8			#dealocate space reverved for get_determinant args
+	move $t0,$v0			#get returned value
+	li $v0, 1			
+	move $a0,$t0
+	syscall
+	j close_f
+	
 	
 cond_end:		#prep to call print_matrix(m,n,address)
 	addiu $sp,$sp,-4
@@ -335,7 +351,7 @@ cond_end:		#prep to call print_matrix(m,n,address)
 	lw $t3, 16($sp)		#m
 	sw $t3, ($sp)
 	jal print_matrix		#void print_matrix(int m,int n,int *address)
-	addiu $sp,$sp,12
+	addiu $sp,$sp,12		#deallocate space reserved for arg of print_matrix
 	
 
 close_f:
@@ -602,28 +618,15 @@ end_printing:
 	addiu $sp,$sp,4
 	jr $ra
 
-determinat:
-	addiu $sp,$sp,-4
-	sw $ra,($sp)
-	addiu $sp,$sp,-4
-	sw $fp,($sp)
-	move $fp,$sp
-	lw $t0, 8($fp)		#check if the size of matrix is 1
-	beq $t0,1,one_by_one
-	
-	
-	
-one_by_one:
-	lw $t0, 12($fp)
-	add $s7, $s7, $t0		#cumulate determinants
-	j end_det #?????????? i am not sure
-end_det:
+
 	
 	
 ###############################################################################
-#get_cofactor(int *matrix, int * temp, int p, int q, int size)
+#get_cofactor(int *address_matrix, int * temp, int p, int q, int size)
 #where p index of row which won't be copied
 #where q index of column which won't be copied
+#it has local variables, but it won't be called recursively
+#so they are not put on stack for conviniece, only registers are being used
 get_cofactor:	
 	addiu $sp,$sp,-4
 	sw $ra, ($sp)
@@ -687,7 +690,110 @@ not_loop1_get_cofactor:
 	addiu $sp,$sp,4
 	jr $ra
 
+#FUNCTION int determinant(int address_matrix, int n), return in $v0, n = matix's dimmention
+#convetion
+#$t0 = n
+get_determinant:
+	addiu $sp,$sp,-4
+	sw $ra, ($sp)
+	addiu $sp,$sp,-4
+	sw $fp,($sp)
+	move $fp,$sp
 	
+	
+	
+	
+	#if (n==1) return matrix[0][0]
+	lw $t0, 12($fp)			#$t0 = n
+	bne $t0,1,not_if_get_determinant
+	lw $t1, 8($fp)			#address of matrix
+	#lw $t9,($t1)
+	lw $v0, ($t1)			#return $v0 = matrix 1x1 (i.e.single element)
+	move $sp,$fp
+	lw $fp,($sp)
+	addiu $sp,$sp,4
+	lw $ra,($sp)
+	addiu $sp,$sp,4
+	jr $ra
+	
+not_if_get_determinant:
+	addiu $sp,$sp,-20		#local variables
+					#int D; int * address_of_temp; int sign = 1; int f = 0; int size_in_bytes;
+	sw $zero,-4($fp)		#D = 0
+	addiu $t1,$zero,1		
+	sw $t1,-12($fp)			#sign = 1;
+	sw $zero,-16($fp)		#f = 0;
+	
+	
+	#int temp[n-1][n-1]
+	addiu $t1,$t0,-1		#dimention of temp: n-1
+	mul $t1,$t1,$t1			#size of temp in words 
+	sll $t1,$t1,2			#size of temp in bytes
+	sw $t1,-20($fp)			#store size of temp in bytes
+	subu $sp,$sp,$t1		#allocate space for temp
+	la $t1,($sp)			#$t1 = address of address of temp 
+	sw $t1,-8($fp)			#address_of_temp = $t1
+	
+	
+	lw $t1,-16($fp)			#$t1 = f
+	bge $t1 ,$t0,not_loop_get_determinant
+loop_get_determinant:
+	#put args of get_cofactor on stack
+	addiu $sp,$sp,-20
+	lw $t9,8($fp)			#load address of matrix
+	sw $t9, ($sp)			#put address of matrix on sack
+	lw $t9, -8($fp)			#load address of temp
+	sw $t9, 4($sp)			#put addres of temp on stack
+	sw $zero,8($sp)			#put p=0 on stack; each funtion will be called to count
+					#cofactor of row =0, col will differ
+	lw $t1,-16($fp)			#$t1 = f
+	sw $t1,12($sp)			#store q = f on stack, !!!!!caution potential bug if in lines abouve $t1 was used, and change value from f
+	lw $t0, 12($fp)			#$t0 = n
+	sw $t0, 16($sp)			#store n = n dimmention of matrix to get cofactor of
+	jal get_cofactor
+	addiu $sp,$sp,20		#dealocate space from get_cofactor args
+	#call get_determinant recursively
+	#prep args for get_determinant
+	addiu $sp,$sp,-8
+	lw $t0, 12($fp)			#$t0 = n
+	addiu $t0,$t0,-1		#$t0 = n -1
+	sw $t0,4($sp)			#put n-1 on stack
+	lw $t9, -8($fp)			#load address of temp
+	sw $t9, ($sp)			#put addres of temp on stack
+	jal get_determinant
+	addiu $sp,$sp, 8		#it can be done here cause it will executed only for 1x1 matrix so no space for matrix will be unwillingly deallocated
+	#sw $v0, -24($fp)		#a = what get_determinant's returned
+	lw $t0, -12($fp)		#load sign
+	#load mat[0][f]
+	lw $t1, -16($fp)		#load f
+	move $t9,$t1			#get copy of f for later use
+	sll $t1,$t1,2			#4*f; multiply by 4 to get how far move mat address
+	lw $t2,8($fp)			#load beginnig of matrix
+	add $t2,$t2,$t1		#get correct address of matrix to get value from 
+					#&m + 4*n*i*0 + 4*j where m[i][j] and dimmention n
+	lw $t3,($t2)			#get m[0][f]	
+	lw $t4, -4($fp)			#load D
+	mul $t5,$t0,$t3			#$t5 = sign* mat[0][f];
+	mul $t5,$t5,$v0			#$t5 = $t5*a;
+	add $t4,$t4,$t5			#$t4 = $t4 + $t5 which translates into d = d + $t5
+	sw $t4,-4($fp)			#acutalize D on stack			
+	mul $t0,$t0,-1			#sign = -sign #######this made a mistake
+	sw $t0,-12($fp)			#acutualize sign on stack
+	addiu $t9,$t9,1			#f++
+	sw $t9, -16($fp)		#actualize f on stack
+	lw $t8, 12($fp)			#$t8 = n
+	blt $t9,$t8,loop_get_determinant
+	
+not_loop_get_determinant:
+	lw $v0, -4($fp)			#$v0 = D it will be returned
+	move $sp,$fp			#dealocated local variables, does it deallocates also temp matrix????
+	lw $fp,($sp)	
+	addiu $sp,$sp,4
+	lw $ra,($sp)
+	addiu $sp,$sp,4
+	jr $ra
+	
+
 	
 	
 	
