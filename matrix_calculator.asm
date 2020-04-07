@@ -6,11 +6,8 @@ error_format:	.asciiz "Error: wrong format of the data in the file\nOperation no
 error_sizes:	.asciiz "Error: not correct sizes of matrices to perform specified operation\nCheck first line of the file\n"
 endl:		.asciiz "\n"
 space:		.asciiz " "
-if_testing:	.asciiz "Loop testing\n"
 plus:		.asciiz "+\n"
 minus:		.asciiz "-"
-val1:		.word 2
-val2:		.word 1
 buf:		.space 1024
 .text
 #$s0 file descriptor
@@ -18,41 +15,32 @@ buf:		.space 1024
 #$s2 n1
 #$s3 m2
 #$s4 n2
-#$s5 current buff address
+#$s5 current buf address
 #$s6 operation type: 
 # 1 '+',  2 "-', 3 '*', 4 'det'
 #$s7 
 .globl main
 main:
-	li $v0,4		#printing greetings
+	li $v0,4			#printing greetings
 	la $a0,greeting
 	syscall
-open_f:	
-	li $v0,13		#open file
+#OPEN FILE
+	li $v0,13			#open file
 	la $a0,file_path
-	li $a1,0		#read-only flag
+	li $a1,0			#read-only flag
 	syscall
-	
 	move $s0, $v0			#file descriptor to $s0
 	blt $s0,$zero,end_err_open	#branch if file not opended properly
-	
-read_f:
+#READ FILE
 	li $v0,14
-	move $a0, $s0		#$a0 = file descriptor
-	la $a1, buf		#$a1 = buff adress
-	li $a2, 1024		#$a2 = max number of char to read(buff size)
-	syscall
-	
-	move $t0, $v0		#storing number of char read
-	li $v0,1		#printing number of char read
-	move $a0, $t0
+	move $a0, $s0			#$a0 = file descriptor
+	la $a1, buf			#$a1 = buf adress
+	li $a2, 1024			#$a2 = max number of char to read(buf size)
 	syscall	
-	jal print_endl
-		
-	#getting type of operation to execute
-	la $s5,buf		#current buf address
+#GET TYPE OF OPPERATION TO EXECUTE
+	la $s5,buf			#current buf address
 	jal get_operation_type
-	
+#SET FP IN MAIN TO GET EASY ACCESS TO LOCAL VARIABLE
 	move $fp,$sp
 	#space for two local variables(in main) m1*n1 and m2*n2
 	addiu $sp,$sp,-4		#space for two local variables(in main) m1*n1 and m2*n2
@@ -98,7 +86,7 @@ matrix2:	#this is each call routine
 	
 	
 	#------------------------
-	#la $t0,buff-redundant	#testing buffor output
+	#la $t0,buf-redundant	#testing buffor output
 	#lb $t1, buff
 	#subi $t1,$t1,'0'
 	li $v0,1		#printing m1 n1
