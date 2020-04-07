@@ -1,6 +1,6 @@
 .data
-greeting: 	.asciiz "It's a matrix calculator!\n"
-file_path:	.asciiz "/home/adam/Desktop/MIPS/code/data.txt"
+greeting: 	.asciiz "It's a matrix calculator!\n\n"
+file_path:	.asciiz "/home/adam/Desktop/MIPS/code/data2.txt"
 error_open:	.asciiz "Error: opening file\nCheck file path!\n"
 error_format:	.asciiz "Error: wrong format of the data in the file\nOperation not specified\n"
 error_sizes:	.asciiz "Error: not correct sizes of matrices to perform specified operation\nCheck first line of the file\n"
@@ -42,83 +42,48 @@ main:
 	jal get_operation_type
 #SET FP IN MAIN TO GET EASY ACCESS TO LOCAL VARIABLE
 	move $fp,$sp
-	#space for two local variables(in main) m1*n1 and m2*n2
 	addiu $sp,$sp,-4		#space for two local variables(in main) m1*n1 and m2*n2
-	addiu $sp,$sp,-8 	#space for two adresses of dynamically allocated memory for matrices - local(in main) variables
-	
-m1_n1:	#first matrix read
+	addiu $sp,$sp,-8 		#space for two adresses of dynamically allocated memory for matrices
+#GET FIRST MATRIX'S SIZE
 	jal get_m_n
-	move $s1,$s7		#m1 - first matrix
+	move $s1,$v0			#m1 - first matrix
+	move $s2,$v1			#n1 - first matrix
+#GET FIRST MATRIX
+	mul $t0,$s1,$s2			#$t0= n1*m1 number of elem in matrix
+	sw $t0,($fp)			#storing m1*n1 in on stack as local variable in main							
+	addiu $sp,$sp,-4		#agruments for functin get_matrix
+	sw $t0,($sp)			#put on stack m1*n1
+	# you should specify this each time !!!!
+	la $t0,-8($fp)			#address where to store matrix1 address
+	addiu $sp,$sp,-4
+	sw $t0,($sp)			
+	jal get_matrix
+	addiu $sp,$sp,8 		#deaclocating space for args of get_matrix
+#GET SECOND MATRIX'S SIZE
 	jal get_m_n
-	move $s2,$s7		#n1 - first matrix
-	
-	
-matrix1:	#this is each call routine
-	mul $t0,$s1,$s2		#$t0= n1*m1 number of elem in matrix
-	sw $t0,12($sp)		#storing m1*n1 in on stack as local variable in main							m1*n1
-	addiu $sp,$sp,-4		#space for $t0 (argument of the fuction), which contains m*n
-	sw $t0,($sp)		#store $t0
-	# you should specify this each time 
-	#la $t0, 8($sp)		#store address of space to write address of memory
-	add $t0,$sp,8
+	move $s3,$v0			#m2 - second matrix
+	move $s4,$v1			#n2 - second matrix
+#GET SECOND MATRIX
+	mul $t0,$s3,$s4			#$t0= n2*m2 number of elem in matrix
+	sw $t0,-4($fp)			#storing m2*n2 in on stack as local variable in main	
+	addiu $sp,$sp,-4		#agruments for functin get_matrix
+	sw $t0,($sp)			#put on stack m1*n1
+	# you should specify this each time !!!!
+	la $t0,-12($fp)			#address where to store matrix1 address
 	addiu $sp,$sp,-4
 	sw $t0,($sp)
 	jal get_matrix
-	addiu $sp,$sp,8 	#deaclocating space for arg of function
-	
-m2_n2:	#second matrix read
-	jal get_m_n
-	move $s3,$s7		#m2 - second matrix
-	jal get_m_n
-	move $s4,$s7		#n2 - second matrix
-matrix2:	#this is each call routine
-	mul $t0,$s3,$s4		#$t0= n*m number of elem in matrix
-	sw $t0,8($sp)		#storing m1*n1 in on stack as local variable in main							m2*n2
-	addiu $sp,$sp,-4	#space for $t0 (argument of the fuction), which contains m*n
-	sw $t0,($sp)		#store $t0
-	# you should specify this each time 
-	#la $t0, 4($sp)		#store address of space to write address of memory
-	add $t0,$sp,4
-	addiu $sp,$sp,-4
-	sw $t0,($sp)
-	jal get_matrix
-	addiu $sp,$sp,8 	#deaclocating space for arg of function
-	
-	
-	#------------------------
-	#la $t0,buf-redundant	#testing buffor output
-	#lb $t1, buff
-	#subi $t1,$t1,'0'
-	li $v0,1		#printing m1 n1
-	move $a0, $s1
-	syscall
-	jal print_endl
-	li $v0,1
-	move $a0, $s2
-	syscall
-	jal print_endl
-	
-	#------------------
-	#fuction print_matrix(int* matrix_begin, int m, int n):
-	#addiu $sp,$sp,-4
-	
-	
-	
+	addiu $sp,$sp,8 		#deaclocating space for args of get_matrix
 	
 #CONVENTION HERE	
-#here in loop for add sub
-# $t0 loop counter 
-#$t7 $8 respectively adddress of matrix1 and 2 
-
-
-	lw $t7, 4($sp)
-	lw $t8, ($sp)
-#space for address of allocated memory for matrix -creating local variable in main for 
-	addiu $sp,$sp,-4
-	
-	
-	
-	bne $s6,1, c2_cond		#if $s6 != 1 check 
+#$t0 loop counter i=m*n
+#$t7 present adddress of matrix1
+#$t2 present address of matrix2
+	lw $t7, -8($fp)
+	lw $t8, -12($fp)
+	addiu $sp,$sp,-4		#space for address of allocated memory for matrix
+#$s6 holds type of opperation see description at the begging of the file
+	bne $s6,1, c2_cond		#if $s6 != 1 
 	j c1_body
 c2_cond:
 	bne $s6,2, c3_cond		#if else $s6 != 2
@@ -130,74 +95,80 @@ c4_cond:				#else (no error can accur, taken care earlier) so $s6 == 4
 	j c5_body 
 
 
-c1_body:#check whether it is possible to add
-	jal check_add_sub
-	
+c1_body:
+	#check whether it is possible to add
+	bne $s1,$s3,error_m_n		#if m1 !=m2 goto error_m_n
+	bne $s2,$s4,error_m_n		#if n1 != n2 goto error_m_n
 
-	lw $t0,16($sp)			#load m1*n1 (it is equal to m2*n2)
-	mul $t1,$t0,4			#multiplying by 4 to get number of words to store ints
-	li $v0, 9			#allocating memory on heap
-	move $a0, $t1			#loading 4*m*n
+	lw $t0,($fp)			#load m1*n1 (it is equal to m2*n2) = size of new matrix in words
+	sll $t1,$t0,2			#multiplying by 4 to get number of bytes 
+	#allocating memory on heap
+	li $v0, 9			#$v0 = 9; sbrk (allocate heap memory)
+	move $a0, $t1			#specyfing size of memory to allocate 4*m*n
 	syscall
 	move $t9,$v0			#$t9 address of alocated memory
-	sw $t9,($sp)			#saved as loc variable in main
-	addiu $sp,$sp,-4		#allocate on stack size of matrix to display( m,n)
-	sw $s1,($sp)
+	sw $t9,-16($fp)			#save address of alocated memory
+	addiu $sp,$sp,-4		#put on stack sizes of matrix to display(m,n); pritn_matrix arguments
+	sw $s1,($sp)			
 	addiu $sp,$sp, -4
-	sw $s2, ($sp)
-	
-add_loop:	
-	beqz $t0,cond_end
-	#$t5, $t6 temp value of matrices
-	lw $t5, ($t7)
-	lw $t6, ($t8)
-	# $t4 is sum/product of subtraction
-	addu $t4,$t5,$t6
-	sw $t4, ($t9)
-	addiu $t9,$t9,4		#go to the next word of new matrix (change address)
-	addiu $t7,$t7,4		#go to the next word of matrix 1 (change address)
-	addiu $t8,$t8,4		#go to the next word of matrix 2 (change address)
-	addiu $t0,$t0,-1
+	sw $s2,($sp)
+#$t0 loop counter i = m*n
+#$t7 present adddress of matrix1
+#$t8 present address of matrix2		
+add_loop:
+	lw $t5, ($t7)			#$t5 = matrix1[i]
+	lw $t6, ($t8)			#t6 = matrix2[i]
+	addu $t4,$t5,$t6		#$t4 = matrix1[i] + matrix2[i]; 
+	sw $t4, ($t9)			#save $t4 under address of new matrix
+	addiu $t9,$t9,4			#go to the next word of new matrix (change address)
+	addiu $t7,$t7,4			#go to the next word of matrix 1 (change address)
+	addiu $t8,$t8,4			#go to the next word of matrix 2 (change address)
+	addiu $t0,$t0,-1		#i--
+	beqz $t0,cond_end		#if i == 0 goto cond_end
 	j add_loop
 c2_body:
-	jal check_add_sub
-	lw $t0,16($sp)			#load m1*n1 (it is equal to m2*n2)
-	mul $t1,$t0,4			#multiplying by 4 to get number of words to store ints
-	li $v0, 9			#allocating memory on heap
-	move $a0, $t1			#loading 4*m*n
+	#check whether it is possible to subtract
+	bne $s1,$s3,error_m_n		#if m1 !=m2 goto error_m_n
+	bne $s2,$s4,error_m_n		#if n1 != n2 goto error_m_n
+	
+	lw $t0,($fp)			#load m1*n1 (it is equal to m2*n2) = size of new matrix in words
+	sll $t1,$t0,2			#multiplying by 4 to get number of bytes 
+	#allocating memory on heap
+	li $v0, 9			#$v0 = 9; sbrk (allocate heap memory)
+	move $a0, $t1			#specyfing size of memory to allocate 4*m*n
 	syscall
 	move $t9,$v0			#$t9 address of alocated memory
-	sw $t9,($sp)			#saved as loc variable in main
-	addiu $sp,$sp,-4		#allocate on stack size of matrix to display( m,n)
+	sw $t9,-16($fp)			#save address of alocated memory
+	addiu $sp,$sp,-4		#put on stack sizes of matrix to display(m,n);pritn_matrix arguments
 	sw $s1,($sp)
 	addiu $sp,$sp, -4
-	sw $s2, ($sp)
-	
+	sw $s2,($sp)
+#$t0 loop counter i = m*n
+#$t7 present adddress of matrix1
+#$t8 present address of matrix2	
 sub_loop:
-	beqz $t0,cond_end
-	nop ################################check this
-	#$t5, $t6 temp value of matrix holders
-	lw $t5, ($t7)
-	lw $t6, ($t8)	
-	# $t4 is sum/product of subtraction
-	subu $t4,$t5,$t6
-	sw $t4,($t9)
-	addiu $t9,$t9,4
-	addiu $t7,$t7,4
-	addiu $t8,$t8,4
-	addiu $t0,$t0,-1
+	lw $t5, ($t7)			#$t5 = matrix1[i]
+	lw $t6, ($t8)			#t6 = matrix2[i]
+	subu $t4,$t5,$t6		#$t4 = matrix1[i] - matrix2[i]; 
+	sw $t4,($t9)			#save $t4 under address of new matrix
+	addiu $t9,$t9,4			#go to the next word of new matrix (change address)
+	addiu $t7,$t7,4			#go to the next word of matrix 1 (change address)
+	addiu $t8,$t8,4			#go to the next word of matrix 2 (change address)
+	addiu $t0,$t0,-1		#i--
+	beqz $t0,cond_end		#if i == 0 goto cond_end
 	j sub_loop
 c3_body:
-	jal check_mult
-	#allocate space for m1*n2
+	#check whether it is possible to subtract
+	bne $s2,$s3,error_m_n		#if n1 != m2 goto error_m_n
+	#allocate memory on heap for m1*n2 word
 	mul $t0,$s1,$s4			#size (in words) of new matrix
-	mul $t1,$t0,4			#size in bytes of new matrix
-	li $v0, 9			#allocating memory on heap
-	move $a0, $t1			#loading 4*m*n
+	sll $t1,$t0,2			#size in bytes of new matrix = 4*m1*n2
+	li $v0, 9			#$v0 = 9; sbrk (allocate heap memory)
+	move $a0, $t1			#specyfing size of memory to allocate 4*m*n
 	syscall
 	move $t9,$v0			#$t9 address of alocated memory
-	sw $t9,($sp)			#saved as loc variable in main
-	addiu $sp,$sp,-4		#allocate on stack size of matrix to display( m,n)
+	sw $t9,($sp)			#save address of alocated memory
+	addiu $sp,$sp,-4		#put on stack size of matrix to display(m1,n2);pritn_matrix arguments
 	sw $s1,($sp)
 	addiu $sp,$sp, -4
 	sw $s4,($sp)
@@ -205,7 +176,7 @@ c3_body:
 	move $t2,$s1			#$t2 = m1
 	move $t3,$s2			#t3 = n1
 	move $s7, $s4			#$s7 = n2
-	move $t4,$zero 			#to make sure it's 0
+	move $t4,$zero 			#$t4 = 0
 
 
 
@@ -367,41 +338,41 @@ error_m_n:
 end:	li $v0,10		#exit
 	syscall
 
-	
-#---------------------------------------------------------
-#function to get matrx size
-#$t0 holds result during counting and later on moves it to $s2 
+#------------------------------------------------------------------	
+#GET_M_N function to get matrx size, it return m in $v0 and n in $v1
+#$t0 holds result during counting and later on moves it to $s7
 get_m_n:
-
-	#la $t9, buf		#load buf address
-	#add $t9,$t9,$s6
-	#addiu $s6,$s6,1
-				#first char
-				
-	lbu $t0, ($s5)		#load first char
-	addiu $s5,$s5,1
-	subi $t0,$t0,'0'	#convert to int
-	
-	#move $t8,$zero		
-new_char:
-	#addi $s6,$s6,1	
-	#addiu $t8,$t8,1		#loop counter
-	#mulo $t7,$t7, $t8	#
-	#addiu $t9,$t9,1		#next bait in buf
-	#lb $t1, 4(buff)
+	lbu $t0, ($s5)			#load first char
+	addiu $s5,$s5,1			#go to the next byte
+	subi $t0,$t0,'0'		#convert to int	
+new_char1:
 	lbu $t1,($s5)
 	addiu $s5,$s5,1
-	beqz $t1,end_int	#check if there are more to baits to read
-	beq $t1,'\n',end_int
-	beq $t1,' ',end_int
-	subi $t1,$t1,'0'
-	mulo  $t0,$t0,10
+	beqz $t1,end_int1		#check if there are more to chars of number (bytes) to read
+	beq $t1,'\n',end_int1
+	beq $t1,' ',end_int1
+	subi $t1,$t1,'0'		#convert to int	
+	mulo  $t0,$t0,10		
 	add $t0,$t0,$t1
-	j new_char
-end_int:	
-	move $s7, $t0
-	move $t0,$zero
-	move $t1,$zero
+	j new_char1
+end_int1:	
+	move $v0, $t0			#return m
+#second int
+	lbu $t0, ($s5)			#load first char
+	addiu $s5,$s5,1			#go to the next byte
+	subi $t0,$t0,'0'		#convert to int	
+new_char2:
+	lbu $t1,($s5)
+	addiu $s5,$s5,1
+	beqz $t1,end_int2		#check if there are more to chars of number (bytes) to read
+	beq $t1,'\n',end_int2
+	beq $t1,' ',end_int2
+	subi $t1,$t1,'0'		#convert to int	
+	mulo  $t0,$t0,10		
+	add $t0,$t0,$t1
+	j new_char2	
+end_int2:
+	move $v1, $t0			#return n
 	jr $ra
 		
 #---------------------------------------------------------
@@ -516,11 +487,10 @@ print_space:
 
 	
 	
-#function get operation typ operation_type(int * buf_address) where $s5 have buf address
+#function get operation typ
+#$s5 current buf address
 get_operation_type:
-	#addiu $sp,$sp,-4
-	#sw $ra,($sp)
-	lbu $t0, ($s5)			#load first char
+	lbu $t0, ($s5)				#load first char
 	addiu $s5,$s5,1
 	beq $t0, '+', addition
 	beq $t0, '-', subtraction
@@ -537,18 +507,16 @@ multiplication:
 	li $s6, 3
 	j op_end
 determinant:
-	li $s6, 4		#'d' already read, but 'e' 't'
+	li $s6, 4		#moving after 'e' 'd' so 2 bytes
 	addiu $s5,$s5,2		
 	j op_end
-	
 op_end:				
 	addiu $s5,$s5,1		#moving after '\n'
 	jr $ra
 	
 	
-# fuction print_matrix(int* matrix_begin, int m, int n):
-#
 
+#CHECKS
 check_add_sub:
 	bne $s1,$s3,error_m_n
 	bne $s2,$s4,error_m_n
