@@ -31,7 +31,8 @@ Not all of them allocate local variables, some of them return using secified reg
 6 2 9
 ```
 
-Where you can choose operation from: + - * det
+Operation: + - * det
+Numbers can be positive or negative.
 ## Constrains
 If a specified operation isn't doable, then program throw an error communating that. The same applies to path address, 
 which is stored in the .data segment.
@@ -39,4 +40,4 @@ Please be cautious about additional whitespace: space and newline. Program won't
 
 
 ### Restrictions
-Calculating determinant get really computionally expensive, so the size should be restricted.
+An error will accur (during for example multipliacation or determinant computation) if the intiger can't be represted in 32 bits in U2.
