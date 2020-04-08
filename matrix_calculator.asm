@@ -1,6 +1,6 @@
 .data
 greeting: 	.asciiz "It's a matrix calculator!\n\n"
-file_path:	.asciiz "/home/adam/Desktop/MIPS/code/data3.txt"
+file_path:	.asciiz "/home/adam/Desktop/MIPS/code/data1.txt"
 error_open:	.asciiz "Error: opening file\nCheck file path!\n"
 error_format:	.asciiz "Error: wrong format of the data in the file\nOperation not specified\n"
 error_sizes:	.asciiz "Error: not correct sizes of matrices to perform specified operation\nCheck first line of the file\n"
@@ -76,7 +76,7 @@ main:
 #CONVENTION HERE	
 #$t0 loop counter i=m*n
 #$t7 present adddress of matrix1
-#$t2 present address of matrix2
+#$t8 present address of matrix2
 	lw $t7, -8($fp)
 	lw $t8, -12($fp)
 	addiu $sp,$sp,-4		#space for address of allocated memory for matrix
