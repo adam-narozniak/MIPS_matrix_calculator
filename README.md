@@ -1,5 +1,5 @@
 # MIPS Matrix Calculator
-Program enables to do the following operation:
+Program enables to do the following operations:
 * addition,
 * subtraction,
 * multiplication,
