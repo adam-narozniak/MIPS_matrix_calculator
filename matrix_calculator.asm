@@ -1,12 +1,9 @@
 .data
 greeting: 	.asciiz "It's a matrix calculator!\n\n"
-file_path:	.asciiz "/home/adam/Desktop/MIPS/code/data1.txt"
+file_path:	.asciiz "/home/adam/Desktop/MIPS/code/data3.txt"
 error_open:	.asciiz "Error: opening file\nCheck file path!\n"
 error_format:	.asciiz "Error: wrong format of the data in the file\nOperation not specified\n"
 error_sizes:	.asciiz "Error: not correct sizes of matrices to perform specified operation\nCheck first line of the file\n"
-space:		.asciiz " "
-plus:		.asciiz "+\n"
-minus:		.asciiz "-"
 buf:		.space 1024
 #$s0 file descriptor
 #$s1 m1
@@ -171,56 +168,56 @@ c3_body:
 	addiu $sp,$sp, -4
 	sw $s4,($sp)
 	#CONVETNITON HERE		loop counters
-	move $t2,$s1			#$t2 = m1 	each row of matrix1 will be multiplied
-	move $t3,$s3			#t3 = m2	column (each element of that column) of matrix2 will be mutiplied
-	move $s7, $s4			#$s7 = n2	each column of matrix2 will be multiplied
-	move $t4,$zero 			#$t4 = 0
+	
+	
+	move $t1,$zero 			#$t1 = 0
 
-#$t4 sum of each element of new matrix for example matrix_new[0][0]
+#$t2 = m1		each row of matrix1 will be multiplied
+#t3 = m2		column (each element of that column) of matrix2 will be mutiplied= n1
+#$t4 = n2		each column of matrix2 will be multiplied
+#$t1 = 0 sum of each element of new matrix for example matrix_new[0][0]
+#$t5 temp matrix1 element holder
+#$t6 temp matrix2 element holder
 #$t7 present matrix1 address
 #$t8 present matrix2 address
+#$t9 address of alocated memory
+	move $t2,$s1			#$t2 = m1 	
 loop_m1:
-	addiu $t2,$t2,-1
+	move $t4, $s4			#$t4 = n2 
+loop_n2:
+	move $t3,$s3			#t3 = m2	
 #single value loop	
-mult_loop_m2:				
+loop_m2:				
 	beqz $t3,end_m2 		#if n1 == 0 break and go to end_m2
-	addiu $t3,$t3,-1		#n1= n1-1
 	lw $t5, ($t7)			#load value from curren matrix1 address v1
 	lw $t6, ($t8)			#load value from curren matrix2 address v2
 	mul $t0,$t5,$t6			#v1*v2
-	add $t4,$t4,$t0			#sum = sum + v1*v2
+	add $t1,$t1,$t0			#sum = sum + v1*v2
 	addiu $t7,$t7,4			#move current address of matix 1
 	mul $t0, $s4,4			#size in bytes to move address of matrix 2 to get to nex elem in column
-	add $t8,$t8,$t0
-	bgtz $t3,mult_loop_m2		#if present m2 > 0 got mult_loop_m2
-	#j mult_loop_m2
+	add $t8,$t8,$t0			#move current address of matix 1
+	addiu $t3,$t3,-1		#m2= m2-1
+	bgtz $t3,loop_m2		#if present m2 > 0 got mult_loop_m2
 	
 end_m2:
-	move $t3, $s2 		#renew n1
-	mul $t0, $s2, -4	#restore matrix 1 to the beginning of the row 
+	sw $t1,($t9)			#save product of addition of multiplication of the each row elem (of matrix 1) and each elem of column of matrix 2
+	addiu $t9,$t9,4			#next address of new matrix
+	mul $t0, $s2, -4		#restore matrix 1 to the beginning of the row 
 	add $t7,$t7,$t0
-	
 	move $t0, $s3		
 	mul $t0, $t0, -4
-	mul $t0, $s4, $t0	#restore matrix 2 to the beginning of the matrix
+	mul $t0, $s4, $t0		#restore matrix 2 to the beginning of the matrix
 	addiu $t0,$t0,4
-	add $t8,$t8, $t0	#matrix2 current address = next element (according to prior loop)
-	
-	sw $t4,($t9)		#save product of addition of multiplication of the each row elem (of matrix 1) and each elem of column of matrix 2
-	addiu $t9,$t9,4		#next address of new matrix
-	move $t4,$zero		
-	addiu $s7,$s7,-1
-	
-	#jump if you have first row output (product of the first row of the matrix)f
-	bgtz $s7,mult_loop_m2		#if present n2>0 goto mult_loop_m2
-
+	add $t8,$t8, $t0		#matrix2 current address = next element (according to prior loop)
+	move $t1,$zero			#temp = 0
+	addiu $t4,$t4,-1		#$t4 = $t4 -1 decreacing present n2
+	bgtz $t4,loop_n2		#if present n2>0 goto mult_loop_n2
 end_n2:	
-	#moving matrix 2 back to the beginning of the address
-	move $s7, $s4 		#renew n2 so $s7 = $s4 which is n2
-	mul $t0,$s2,4 		#move matrix 1 to the next row
+	sll $t0,$s2,2			#move matrix 1 to the next row
 	add $t7,$t7,$t0
-	lw $t8,-12($fp)		#go back to the beginning of matrix2 (to the address of beginning)
-	beqz $t2,cond_end		#if $t2 == 0 goto cond_end
+	lw $t8,-12($fp)			#go back to the beginning of matrix2 (to the address of beginning)
+	addiu $t2,$t2,-1		#$t2 = $t2 - 1 decreacing present m1
+	blez $t2,cond_end		#if $t2 <= 0 goto cond_end
 	j loop_m1
 	
 c4_body:
@@ -241,14 +238,14 @@ c4_body:
 	
 cond_end:		#prep to call print_matrix(m,n,address)
 	addiu $sp,$sp,-4
-	lw $t3,-16($fp)		
-	sw $t3,($sp)		#address od matrix
+	lw $t0,-16($fp)		
+	sw $t0,($sp)		#address od matrix
 	addiu $sp,$sp,-4
-	lw $t3, 8($sp)		#n
-	sw $t3,($sp)
+	lw $t0,-24($fp)		#n
+	sw $t0,($sp)
 	addiu $sp,$sp,-4
-	lw $t3, 16($sp)		#m
-	sw $t3, ($sp)
+	lw $t0,-20($fp)		#m
+	sw $t0, ($sp)
 	jal print_matrix		#void print_matrix(int m,int n,int *address)
 	addiu $sp,$sp,12		#deallocate space reserved for arg of print_matrix
 	
@@ -497,19 +494,21 @@ get_cofactor:
 	
 	move $t0,$zero			# $t0 = i = 0
 	move $t1,$zero			# $t1 = j = 0
-	move $t2,$zero			# $t2 = row = 0
+	
+	
 	lw $t4,24($fp)			#$t4 = n; it will stay const
 	lw $t5,16($fp)			#$t5 = p
 	lw $t6,20($fp)			#t6 = q
 	lw $t7,8($fp)			#t7 = address of matrix
 	lw $t8,12($fp)			#$t8 = address of temp
 	addiu $s7,$t4,-1		#n of temp = n -1 
-
-	beq $t2,$t4,not_loop1_get_cofactor	#  for (int row = 0; row < n; row++) 
+	
+	move $t2,$zero			# $t2 = row = 0
+	bge $t2,$t4,not_loop1_get_cofactor	#  for (int row = 0; row < n; row++) 
+	
 loop1_get_cofactor:
-
 	move $t3,$zero				#$t3 = col = 0
-	beq $t3,$t4,end_loop1_get_cofactor	#   for (int col = 0; col < n; col++) 
+	bge $t3,$t4,end_loop1_get_cofactor	#   for (int col = 0; col < n; col++) 
 loop2_get_cofactor:
 	
 if1_get_cofactor:	
